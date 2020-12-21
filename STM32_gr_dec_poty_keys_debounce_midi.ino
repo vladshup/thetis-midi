@@ -14,8 +14,25 @@
 USBMIDI midi;
 const unsigned int midi_channel = 4; // this might show up as channel 1 depending on start index
 
+//Speaker
+#define SPEAKER_PIN PC13
+
+class myMidi : public USBMIDI {
+ virtual void handleNoteOff(unsigned int channel, unsigned int note, unsigned int velocity) {
+  noTone(SPEAKER_PIN);
+ }
+ virtual void handleNoteOn(unsigned int channel, unsigned int note, unsigned int velocity) {
+   tone(SPEAKER_PIN, (midiNoteFrequency_10ths[note]+5)/10);
+  }
+  
+};
+
+myMidi midiin;
+USBCompositeSerial CompositeSerial;
+
+
 //Wheels encoders 5V-GND
-const unsigned int enc0_command = 48; //encoder 0
+const unsigned int enc0_command = 40; //encoder 0
 #define ENC_A PC14 //Digital pin. Best with 5V tolerance
 #define ENC_B PC15 //Digital pin. Best with 5V tolerance
 
@@ -42,7 +59,12 @@ ButtonDebounce key1(KEY_1, DEBOUNCE);
 void setup()
 {
   //product id taken from library example
-  USBComposite.setProductId(0x0031);
+  USBComposite.setProductId(0x0030);
+    pinMode(SPEAKER_PIN, OUTPUT);
+    midiin.registerComponent();
+    CompositeSerial.registerComponent();
+    USBComposite.begin();
+  
   pinMode(POT_0, INPUT);
   midi.begin();
   delay(1000);
@@ -53,11 +75,13 @@ void setup()
  pinMode(ENC_B, INPUT_PULLUP);
  digitalWrite(ENC_B, HIGH);
 
- //Buttons setup in debounce library
+ //Buttons pins setup in debounce library
 }//End setup
 
 void loop()
 {
+
+  midiin.poll();
 
     //Encoder wheel utility     
     int8_t tmpdata;
