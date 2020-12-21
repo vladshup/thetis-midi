@@ -1,15 +1,19 @@
 #include <ButtonDebounce.h>
-/* Rotary encoder read example */
+/* Rotary encoder grey code read lib only for PowerSDR(Thetis)*/
+#include <MidiEncoder.h>
 #include <USBComposite.h>
-
-// test a KY-040 style rotary encoder module on a blue pill board
-// uncomment either LIBMAPLE_CORE or STM32DUINO_CORE 
-//#define LIBMAPLE_CORE
 #define STM32DUINO_CORE
-// for STM32DUINO_CORE be sure to select a serial port in the tools menu
 
-//Debounce delay ms
+//Buttons debounce delay ms
 #define DEBOUNCE 100
+
+//OOP Wheel encoders 5V-GND
+const unsigned int enc0_command = 40; //encoder 0 ID
+MidiEncoder enc0(PC14, PC15); //Arg's - STM32 pins
+/*
+const unsigned int enc1_command = 41; //encoder 1 ID
+MidiEncoder enc1(PB03, PB04);//Arg's - STM32 pins
+*/
 
 //Main encoder speed divider
 #define SDIV 4
@@ -18,7 +22,7 @@ USBMIDI midi;
 const unsigned int midi_channel = 4; // this might show up as channel 1 depending on start index
 
 //Speaker
-#define SPEAKER_PIN PC13
+#define SPEAKER_PIN PC13 //Fake pin for midi input emulation
 
 class myMidi : public USBMIDI {
  virtual void handleNoteOff(unsigned int channel, unsigned int note, unsigned int velocity) {
@@ -30,22 +34,22 @@ class myMidi : public USBMIDI {
   
 };
 
-myMidi midiin;
-//USBCompositeSerial CompositeSerial;
-
-
-//Wheels encoders 5V-GND
-const unsigned int enc0_command = 40; //encoder 0
-#define ENC0_A PC14 //Digital pin. Best with 5V tolerance
-#define ENC0_B PC15 //Digital pin. Best with 5V tolerance
+myMidi midiin; //Fake midi input emulation
 
 //Potentiometrs 3.3V-GND
-const unsigned int pot0_command = 50; // poty 0
 const uint8 threshold = 1;
-unsigned int old_value = 0;
-unsigned int new_value = 0;
-#define POT_0 PA0 //ADC pins: PA0-PA7,PB0,PB1
 
+#define POT_0 PA0 //ADC pins: PA0-PA7,PB0,PB1
+const unsigned int pot0_command = 50; // poty 0 ID
+unsigned int pot0_old_value = 0;
+unsigned int pot0_new_value = 0;
+
+/*
+#define POT_1 PA1 //ADC pins: PA0-PA7,PB0,PB1
+const unsigned int pot1_command = 51; // poty 1 ID
+unsigned int pot1_old_value = 0;
+unsigned int pot1_new_value = 0;
+*/
 
 //Buttons
 const unsigned int key0_command = 60; // button 0
@@ -58,39 +62,28 @@ const unsigned int key1_command = 61; // button 1
 unsigned int key01 = 0;
 ButtonDebounce key1(KEY_1, DEBOUNCE);
 
-
 void setup()
 {
-  //product id taken from library example
-  USBComposite.setProductId(0x0030);
+    //product id taken from library example
+    USBComposite.setProductId(0x0030);
     pinMode(SPEAKER_PIN, OUTPUT);
     midiin.registerComponent();
-    //CompositeSerial.registerComponent();
     USBComposite.begin();
   
-  pinMode(POT_0, INPUT);
-  midi.begin();
-  delay(1000);
-    
- //Setup encoder pins as inputs
- pinMode(ENC0_A, INPUT_PULLUP);
- digitalWrite(ENC0_A, HIGH);
- pinMode(ENC0_B, INPUT_PULLUP);
- digitalWrite(ENC0_B, HIGH);
-
- //Buttons pins setup in debounce library
+    pinMode(POT_0, INPUT);
+    midi.begin();
+    delay(1000);
 }//End setup
+
 
 void loop()
 {
-
-  midiin.poll();
+  midiin.poll(); //Not used but need for PowerSDR(Thetis)
 
     //Encoder wheel utility     
-    //int8_t tmpdata;
        static int8_t pulse;
        pulse++;
-       int8_t tmpdata = read_encoder(ENC0_A, ENC0_B);
+       int8_t tmpdata = enc0.read();
        
            if( tmpdata ) {
 
@@ -99,8 +92,7 @@ void loop()
              pulse = 0;
             }
            }
-    
-    
+
     //Buttons utility
     key0.update();
     int8_t old_key0;
@@ -122,29 +114,31 @@ void loop()
     
     //Poty utility
       int temp = analogRead(POT_0); // a value between 0-4095
-      new_value = temp / 32;          // convert to a value between 0-127
+      pot0_new_value = temp / 32;          // convert to a value between 0-127
     
       // If difference between new_value and old_value is grater than threshold
-      if ((new_value > old_value && new_value - old_value > threshold) ||
-          (new_value < old_value && old_value - new_value > threshold)) {
+      if ((pot0_new_value > pot0_old_value && pot0_new_value - pot0_old_value > threshold) ||
+          (pot0_new_value < pot0_old_value && pot0_old_value - pot0_new_value > threshold)) {
     
-        midi.sendControlChange(midi_channel, pot0_command, new_value);
+        midi.sendControlChange(midi_channel, pot0_command, pot0_new_value);
     
         // Update old_value
-        old_value = new_value;
+        pot0_old_value = pot0_new_value;
       }
  
 } //End loop
 
 /* returns change in encoder state (-1,0,1) */
+/*
 int8_t read_encoder(int8_t enc_a, int8_t enc_b)
 {
  //int8_t enc_states[] = {0,-1,1,0,1,0,0,-1,-1,0,0,1,0,1,-1,0};
  int8_t enc_states[] = {0,127,1,0,1,0,0,127,127,0,0,1,0,1,127,0}; //PowerSDR mrx (Thetis) need only rotary direction 1 (CCW) and 127 (CW)
  static uint8_t old_AB = 0;
- /**/
+
  old_AB <<= 2;                   //remember previous state
  //old_AB |= ( ENC_PORT & 0x03 );  //add current state
  old_AB |= ((digitalRead (enc_b) << 1) | digitalRead (enc_a));
  return ( enc_states[( old_AB & 0x0f )]);  
 } //End read_encoder()
+*/
