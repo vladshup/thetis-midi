@@ -7,6 +7,24 @@
 #include <AceButton.h>
 using namespace ace_button;
 
+USBMIDI midi;
+const unsigned int midi_channel = 4; // this might show up as channel 1 depending on start index
+
+//Fake speaker
+#define SPEAKER_PIN PC13 //Fake pin for midi input emulation
+
+class myMidi : public USBMIDI {
+ virtual void handleNoteOff(unsigned int channel, unsigned int note, unsigned int velocity) {
+  noTone(SPEAKER_PIN);
+ }
+ virtual void handleNoteOn(unsigned int channel, unsigned int note, unsigned int velocity) {
+   tone(SPEAKER_PIN, (midiNoteFrequency_10ths[note]+5)/10);
+  }  
+};
+
+myMidi midiin; //Fake midi input emulation
+
+
 // The pin numbers attached to the buttons.
 const int RIT_BUTTON_PIN = PB4;
 const int SPLIT_BUTTON_PIN = PB11;
@@ -24,41 +42,16 @@ MidiEncoder vfoA(PC14, PC15); //Arg's - STM32 pins
 
 const unsigned int rit_id = 41; //encoder 1 ID
 MidiEncoder rit(PB6, PB7);//Arg's - STM32 pins
+#define RIT_MULT 1
 
-
-//RIT/XIT encoder speed mult
-#define MULT 1
-
-USBMIDI midi;
-const unsigned int midi_channel = 4; // this might show up as channel 1 depending on start index
-
-//Speaker
-#define SPEAKER_PIN PC13 //Fake pin for midi input emulation
-
-class myMidi : public USBMIDI {
- virtual void handleNoteOff(unsigned int channel, unsigned int note, unsigned int velocity) {
-  noTone(SPEAKER_PIN);
- }
- virtual void handleNoteOn(unsigned int channel, unsigned int note, unsigned int velocity) {
-   tone(SPEAKER_PIN, (midiNoteFrequency_10ths[note]+5)/10);
-  }
-  
-};
-
-myMidi midiin; //Fake midi input emulation
-
-//Potentiometrs 3.3V-GND
-const uint8 threshold = 1;
 
 //ADC pins: PA0-PA7,PB0,PB1
 const unsigned int pot1_id = 50; // poty 1 ID
 MidiPot pot1(PA0);
-
 /*
 const unsigned int pot2_id = 51; // poty 2 ID
 MidiPot pot2(PA1);
 */
-
 
 // The event handler for the buttons.
 void handleEvent(AceButton* button, uint8_t eventType,
@@ -101,10 +94,8 @@ void handleEvent(AceButton* button, uint8_t eventType,
         midi.sendControlChange(midi_channel, 63, 127);
       break;
     }    
-  }
-  
-}// End the event handler for the buttons.
-
+  }  
+}
 
 
 void setup()
@@ -158,7 +149,7 @@ void loop()
     //RIT encoder   
        int8_t tmpdata1 = rit.read();       
            if( tmpdata1 ) {
-              for(int i = 1; i <= MULT; i++) {
+              for(int i = 1; i <= RIT_MULT; i++) {
                 midi.sendControlChange(midi_channel, rit_id, tmpdata1);
               }
            }
